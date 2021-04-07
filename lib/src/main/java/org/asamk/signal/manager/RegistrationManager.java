@@ -21,6 +21,7 @@ import org.asamk.signal.manager.config.ServiceEnvironment;
 import org.asamk.signal.manager.config.ServiceEnvironmentConfig;
 import org.asamk.signal.manager.helper.PinHelper;
 import org.asamk.signal.manager.storage.SignalAccount;
+import org.asamk.signal.manager.storage.StorageProvider;
 import org.asamk.signal.manager.util.KeyUtils;
 import org.whispersystems.libsignal.util.KeyHelper;
 import org.whispersystems.libsignal.util.guava.Optional;
@@ -38,14 +39,13 @@ import org.whispersystems.signalservice.internal.push.VerifyAccountResponse;
 import org.whispersystems.signalservice.internal.util.DynamicCredentialsProvider;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.util.Locale;
 
 public class RegistrationManager implements Closeable {
 
     private SignalAccount account;
-    private final PathConfig pathConfig;
+    private final StorageProvider storageProvider;
     private final ServiceEnvironmentConfig serviceEnvironmentConfig;
     private final String userAgent;
 
@@ -54,12 +54,12 @@ public class RegistrationManager implements Closeable {
 
     public RegistrationManager(
             SignalAccount account,
-            PathConfig pathConfig,
+            StorageProvider storageProvider,
             ServiceEnvironmentConfig serviceEnvironmentConfig,
             String userAgent
     ) {
         this.account = account;
-        this.pathConfig = pathConfig;
+        this.storageProvider = storageProvider;
         this.serviceEnvironmentConfig = serviceEnvironmentConfig;
         this.userAgent = userAgent;
 
@@ -87,29 +87,25 @@ public class RegistrationManager implements Closeable {
     }
 
     public static RegistrationManager init(
-            String username, File settingsPath, ServiceEnvironment serviceEnvironment, String userAgent
+            String username, StorageProvider storageProvider, ServiceEnvironment serviceEnvironment, String userAgent
     ) throws IOException {
-        var pathConfig = PathConfig.createDefault(settingsPath);
-
         final var serviceConfiguration = ServiceConfig.getServiceEnvironmentConfig(serviceEnvironment, userAgent);
-        if (!SignalAccount.userExists(pathConfig.getDataPath(), username)) {
+        if (!storageProvider.accountExists(username)) {
             var identityKey = KeyUtils.generateIdentityKeyPair();
             var registrationId = KeyHelper.generateRegistrationId(false);
-
             var profileKey = KeyUtils.createProfileKey();
-            var account = SignalAccount.create(pathConfig.getDataPath(),
-                    username,
-                    identityKey,
-                    registrationId,
-                    profileKey);
+            var accountStorage = storageProvider.createAccount(username, identityKey, registrationId, profileKey);
+
+            var account = new SignalAccount(accountStorage);
             account.save();
 
-            return new RegistrationManager(account, pathConfig, serviceConfiguration, userAgent);
+            return new RegistrationManager(account, storageProvider, serviceConfiguration, userAgent);
         }
 
-        var account = SignalAccount.load(pathConfig.getDataPath(), username);
+        var accountStorage = storageProvider.loadAccount(username);
+        var account = new SignalAccount(accountStorage);
 
-        return new RegistrationManager(account, pathConfig, serviceConfiguration, userAgent);
+        return new RegistrationManager(account, storageProvider, serviceConfiguration, userAgent);
     }
 
     public void register(boolean voiceVerification, String captcha) throws IOException {
@@ -171,7 +167,7 @@ public class RegistrationManager implements Closeable {
 
         Manager m = null;
         try {
-            m = new Manager(account, pathConfig, serviceEnvironmentConfig, userAgent);
+            m = new Manager(account, storageProvider, serviceEnvironmentConfig, userAgent);
 
             m.refreshPreKeys();
 

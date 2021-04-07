@@ -20,6 +20,7 @@ import org.asamk.signal.manager.config.ServiceConfig;
 import org.asamk.signal.manager.config.ServiceEnvironment;
 import org.asamk.signal.manager.config.ServiceEnvironmentConfig;
 import org.asamk.signal.manager.storage.SignalAccount;
+import org.asamk.signal.manager.storage.StorageProvider;
 import org.asamk.signal.manager.util.KeyUtils;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.profiles.ProfileKey;
@@ -36,7 +37,6 @@ import org.whispersystems.signalservice.api.util.SleepTimer;
 import org.whispersystems.signalservice.api.util.UptimeSleepTimer;
 import org.whispersystems.signalservice.internal.util.DynamicCredentialsProvider;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.TimeoutException;
@@ -45,7 +45,7 @@ public class ProvisioningManager {
 
     private final static Logger logger = LoggerFactory.getLogger(ProvisioningManager.class);
 
-    private final PathConfig pathConfig;
+    private final StorageProvider storageProvider;
     private final ServiceEnvironmentConfig serviceEnvironmentConfig;
     private final String userAgent;
 
@@ -54,8 +54,8 @@ public class ProvisioningManager {
     private final int registrationId;
     private final String password;
 
-    ProvisioningManager(PathConfig pathConfig, ServiceEnvironmentConfig serviceEnvironmentConfig, String userAgent) {
-        this.pathConfig = pathConfig;
+    ProvisioningManager(StorageProvider storageProvider, ServiceEnvironmentConfig serviceEnvironmentConfig, String userAgent) {
+        this.storageProvider = storageProvider;
         this.serviceEnvironmentConfig = serviceEnvironmentConfig;
         this.userAgent = userAgent;
 
@@ -78,13 +78,11 @@ public class ProvisioningManager {
     }
 
     public static ProvisioningManager init(
-            File settingsPath, ServiceEnvironment serviceEnvironment, String userAgent
+            StorageProvider storageProvider, ServiceEnvironment serviceEnvironment, String userAgent
     ) {
-        var pathConfig = PathConfig.createDefault(settingsPath);
-
         final var serviceConfiguration = ServiceConfig.getServiceEnvironmentConfig(serviceEnvironment, userAgent);
 
-        return new ProvisioningManager(pathConfig, serviceConfiguration, userAgent);
+        return new ProvisioningManager(storageProvider, serviceConfiguration, userAgent);
     }
 
     public URI getDeviceLinkUri() throws TimeoutException, IOException {
@@ -98,8 +96,8 @@ public class ProvisioningManager {
 
         var username = ret.getNumber();
         // TODO do this check before actually registering
-        if (SignalAccount.userExists(pathConfig.getDataPath(), username)) {
-            throw new UserAlreadyExists(username, SignalAccount.getFileName(pathConfig.getDataPath(), username));
+        if (storageProvider.accountExists(username)) {
+            throw new UserAlreadyExists(username, SignalAccount.getStorageDescription());
         }
 
         // Create new account with the synced identity
@@ -117,7 +115,7 @@ public class ProvisioningManager {
 
         SignalAccount account = null;
         try {
-            account = SignalAccount.createLinkedAccount(pathConfig.getDataPath(),
+            account = new SignalAccount(storageProvider.createLinkedAccount(
                     username,
                     ret.getUuid(),
                     password,
@@ -129,7 +127,7 @@ public class ProvisioningManager {
 
             Manager m = null;
             try {
-                m = new Manager(account, pathConfig, serviceEnvironmentConfig, userAgent);
+                m = new Manager(account, storageProvider, serviceEnvironmentConfig, userAgent);
 
                 try {
                     m.refreshPreKeys();

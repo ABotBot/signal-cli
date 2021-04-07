@@ -30,6 +30,7 @@ import org.asamk.signal.manager.helper.PinHelper;
 import org.asamk.signal.manager.helper.ProfileHelper;
 import org.asamk.signal.manager.helper.UnidentifiedAccessHelper;
 import org.asamk.signal.manager.storage.SignalAccount;
+import org.asamk.signal.manager.storage.StorageProvider;
 import org.asamk.signal.manager.storage.contacts.ContactInfo;
 import org.asamk.signal.manager.storage.groups.GroupInfo;
 import org.asamk.signal.manager.storage.groups.GroupInfoV1;
@@ -191,7 +192,7 @@ public class Manager implements Closeable {
 
     Manager(
             SignalAccount account,
-            PathConfig pathConfig,
+            StorageProvider storageProvider,
             ServiceEnvironmentConfig serviceEnvironmentConfig,
             String userAgent
     ) {
@@ -250,8 +251,8 @@ public class Manager implements Closeable {
                 groupsV2Operations,
                 groupsV2Api,
                 this::getGroupAuthForToday);
-        this.avatarStore = new AvatarStore(pathConfig.getAvatarsPath());
-        this.attachmentStore = new AttachmentStore(pathConfig.getAttachmentsPath());
+        this.avatarStore = storageProvider.getAvatarStore();
+        this.attachmentStore = storageProvider.getAttachmentStore();
     }
 
     public String getUsername() {
@@ -271,15 +272,14 @@ public class Manager implements Closeable {
     }
 
     public static Manager init(
-            String username, File settingsPath, ServiceEnvironment serviceEnvironment, String userAgent
+            String username, StorageProvider storageProvider, ServiceEnvironment serviceEnvironment, String userAgent
     ) throws IOException, NotRegisteredException {
-        var pathConfig = PathConfig.createDefault(settingsPath);
-
-        if (!SignalAccount.userExists(pathConfig.getDataPath(), username)) {
+        if (!storageProvider.accountExists(username)) {
             throw new NotRegisteredException();
         }
 
-        var account = SignalAccount.load(pathConfig.getDataPath(), username);
+        var accountStorage = storageProvider.loadAccount(username);
+        var account = new SignalAccount(accountStorage);
 
         if (!account.isRegistered()) {
             throw new NotRegisteredException();
@@ -287,7 +287,7 @@ public class Manager implements Closeable {
 
         final var serviceEnvironmentConfig = ServiceConfig.getServiceEnvironmentConfig(serviceEnvironment, userAgent);
 
-        return new Manager(account, pathConfig, serviceEnvironmentConfig, userAgent);
+        return new Manager(account, storageProvider, serviceEnvironmentConfig, userAgent);
     }
 
     public static List<String> getAllLocalUsernames(File settingsPath) {
