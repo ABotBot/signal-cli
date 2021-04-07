@@ -19,10 +19,13 @@ import org.asamk.signal.commands.exceptions.UnexpectedErrorException;
 import org.asamk.signal.commands.exceptions.UserErrorException;
 import org.asamk.signal.manager.Manager;
 import org.asamk.signal.manager.NotRegisteredException;
+import org.asamk.signal.manager.PathConfig;
 import org.asamk.signal.manager.ProvisioningManager;
 import org.asamk.signal.manager.RegistrationManager;
 import org.asamk.signal.manager.config.ServiceConfig;
 import org.asamk.signal.manager.config.ServiceEnvironment;
+import org.asamk.signal.manager.storage.FileStorageProvider;
+import org.asamk.signal.manager.storage.StorageProvider;
 import org.asamk.signal.util.IOUtils;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.exceptions.DBusException;
@@ -166,7 +169,9 @@ public class App {
     private void handleProvisioningCommand(
             final ProvisioningCommand command, final File dataPath, final ServiceEnvironment serviceEnvironment
     ) throws CommandException {
-        var pm = ProvisioningManager.init(dataPath, serviceEnvironment, BaseConfig.USER_AGENT);
+        var pathConfig = PathConfig.createDefault(dataPath);
+        StorageProvider storageProvider = new FileStorageProvider(pathConfig);
+        var pm = ProvisioningManager.init(storageProvider, serviceEnvironment, BaseConfig.USER_AGENT);
         command.handleCommand(ns, pm);
     }
 
@@ -178,7 +183,9 @@ public class App {
     ) throws CommandException {
         final RegistrationManager manager;
         try {
-            manager = RegistrationManager.init(username, dataPath, serviceEnvironment, BaseConfig.USER_AGENT);
+            var pathConfig = PathConfig.createDefault(dataPath);
+            StorageProvider storageProvider = new FileStorageProvider(pathConfig);
+            manager = RegistrationManager.init(username, storageProvider, serviceEnvironment, BaseConfig.USER_AGENT);
         } catch (Throwable e) {
             throw new UnexpectedErrorException("Error loading or creating state file: "
                     + e.getMessage()
@@ -237,7 +244,9 @@ public class App {
     ) throws CommandException {
         Manager manager;
         try {
-            manager = Manager.init(username, dataPath, serviceEnvironment, BaseConfig.USER_AGENT);
+            var pathConfig = PathConfig.createDefault(dataPath);
+            StorageProvider storageProvider = new FileStorageProvider(pathConfig); // TODO load from different provider
+            manager = Manager.init(username, storageProvider, serviceEnvironment, BaseConfig.USER_AGENT);
         } catch (NotRegisteredException e) {
             throw new UserErrorException("User " + username + " is not registered.");
         } catch (Throwable e) {

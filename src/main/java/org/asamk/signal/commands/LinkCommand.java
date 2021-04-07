@@ -55,7 +55,7 @@ public class LinkCommand implements ProvisioningCommand {
             throw new UserErrorException("The user "
                     + e.getUsername()
                     + " already exists\nDelete \""
-                    + e.getFileName()
+                    + e.getDescription()
                     + "\" before trying again.");
         }
     }
