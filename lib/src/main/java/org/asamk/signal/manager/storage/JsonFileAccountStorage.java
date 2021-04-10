@@ -10,13 +10,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import org.asamk.signal.manager.groups.GroupId;
+import org.asamk.signal.manager.storage.contacts.ContactsStore;
 import org.asamk.signal.manager.storage.contacts.JsonContactsStore;
 import org.asamk.signal.manager.storage.groups.GroupInfoV1;
+import org.asamk.signal.manager.storage.groups.GroupStore;
 import org.asamk.signal.manager.storage.groups.JsonGroupStore;
+import org.asamk.signal.manager.storage.messageCache.FileMessageCache;
 import org.asamk.signal.manager.storage.messageCache.MessageCache;
+import org.asamk.signal.manager.storage.profiles.JsonProfileStore;
 import org.asamk.signal.manager.storage.profiles.ProfileStore;
+import org.asamk.signal.manager.storage.protocol.JsonRecipientStore;
 import org.asamk.signal.manager.storage.protocol.JsonSignalProtocolStore;
 import org.asamk.signal.manager.storage.protocol.RecipientStore;
+import org.asamk.signal.manager.storage.protocol.SignalCliProtocolStore;
+import org.asamk.signal.manager.storage.stickers.JsonStickerStore;
 import org.asamk.signal.manager.storage.stickers.StickerStore;
 import org.asamk.signal.manager.storage.threads.LegacyJsonThreadStore;
 import org.asamk.signal.manager.util.IOUtils;
@@ -44,13 +51,33 @@ import java.util.Base64;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class JsonFileAccountStorage extends AccountStorage {
+public class JsonFileAccountStorage implements AccountStorage {
 
     private final static Logger logger = LoggerFactory.getLogger(JsonFileAccountStorage.class);
 
     private final ObjectMapper jsonProcessor = new ObjectMapper();
     private final FileChannel fileChannel;
     private final FileLock lock;
+
+    protected String username;
+    protected UUID uuid;
+    protected int deviceId = SignalServiceAddress.DEFAULT_DEVICE_ID;
+    protected boolean isMultiDevice = false;
+    protected String password;
+    protected String registrationLockPin;
+    protected MasterKey pinMasterKey;
+    protected StorageKey storageKey;
+    protected ProfileKey profileKey;
+    protected int preKeyIdOffset;
+    protected int nextSignedPreKeyId;
+    protected boolean registered = false;
+    protected JsonSignalProtocolStore signalProtocolStore;
+    protected JsonGroupStore groupStore;
+    protected JsonContactsStore contactStore;
+    protected JsonRecipientStore recipientStore;
+    protected JsonProfileStore profileStore;
+    protected JsonStickerStore stickerStore;
+    protected FileMessageCache messageCache;
 
     private JsonFileAccountStorage(final FileChannel fileChannel, final FileLock lock) {
         this.fileChannel = fileChannel;
@@ -94,10 +121,10 @@ public class JsonFileAccountStorage extends AccountStorage {
         storage.signalProtocolStore = new JsonSignalProtocolStore(identityKey, registrationId);
         storage.groupStore = new JsonGroupStore(getGroupCachePath(dataPath, username));
         storage.contactStore = new JsonContactsStore();
-        storage.recipientStore = new RecipientStore();
-        storage.profileStore = new ProfileStore();
-        storage.stickerStore = new StickerStore();
-        storage.messageCache = new MessageCache(getMessageCachePath(dataPath, username));
+        storage.recipientStore = new JsonRecipientStore();
+        storage.profileStore = new JsonProfileStore();
+        storage.stickerStore = new JsonStickerStore();
+        storage.messageCache = new FileMessageCache(getMessageCachePath(dataPath, username));
 
         storage.registered = false;
 
@@ -131,11 +158,11 @@ public class JsonFileAccountStorage extends AccountStorage {
         storage.signalProtocolStore = new JsonSignalProtocolStore(identityKey, registrationId);
         storage.groupStore = new JsonGroupStore(getGroupCachePath(dataPath, username));
         storage.contactStore = new JsonContactsStore();
-        storage.recipientStore = new RecipientStore();
-        storage.profileStore = new ProfileStore();
-        storage.stickerStore = new StickerStore();
+        storage.recipientStore = new JsonRecipientStore();
+        storage.profileStore = new JsonProfileStore();
+        storage.stickerStore = new JsonStickerStore();
 
-        storage.messageCache = new MessageCache(getMessageCachePath(dataPath, username));
+        storage.messageCache = new FileMessageCache(getMessageCachePath(dataPath, username));
 
         storage.registered = true;
         storage.isMultiDevice = true;
@@ -216,10 +243,10 @@ public class JsonFileAccountStorage extends AccountStorage {
 
         var recipientStoreNode = rootNode.get("recipientStore");
         if (recipientStoreNode != null) {
-            recipientStore = jsonProcessor.convertValue(recipientStoreNode, RecipientStore.class);
+            recipientStore = jsonProcessor.convertValue(recipientStoreNode, JsonRecipientStore.class);
         }
         if (recipientStore == null) {
-            recipientStore = new RecipientStore();
+            recipientStore = new JsonRecipientStore();
 
             recipientStore.resolveServiceAddress(getSelfAddress());
 
@@ -247,21 +274,21 @@ public class JsonFileAccountStorage extends AccountStorage {
 
         var profileStoreNode = rootNode.get("profileStore");
         if (profileStoreNode != null) {
-            profileStore = jsonProcessor.convertValue(profileStoreNode, ProfileStore.class);
+            profileStore = jsonProcessor.convertValue(profileStoreNode, JsonProfileStore.class);
         }
         if (profileStore == null) {
-            profileStore = new ProfileStore();
+            profileStore = new JsonProfileStore();
         }
 
         var stickerStoreNode = rootNode.get("stickerStore");
         if (stickerStoreNode != null) {
-            stickerStore = jsonProcessor.convertValue(stickerStoreNode, StickerStore.class);
+            stickerStore = jsonProcessor.convertValue(stickerStoreNode, JsonStickerStore.class);
         }
         if (stickerStore == null) {
-            stickerStore = new StickerStore();
+            stickerStore = new JsonStickerStore();
         }
 
-        messageCache = new MessageCache(getMessageCachePath(dataPath, username));
+        messageCache = new FileMessageCache(getMessageCachePath(dataPath, username));
 
         var threadStoreNode = rootNode.get("threadStore");
         if (threadStoreNode != null && !threadStoreNode.isNull()) {
@@ -356,6 +383,158 @@ public class JsonFileAccountStorage extends AccountStorage {
 
     private static File getGroupCachePath(File dataPath, String username) {
         return new File(getUserPath(dataPath, username), "group-cache");
+    }
+
+    public boolean isRegistered() {
+        return registered;
+    }
+
+    @Override
+    public void setRegistered(final boolean registered) {
+        this.registered = registered;
+    }
+
+    @Override
+    public boolean isMultiDevice() {
+        return isMultiDevice;
+    }
+
+    @Override
+    public void setMultiDevice(final boolean multiDevice) {
+        isMultiDevice = multiDevice;
+    }
+
+    @Override
+    public SignalCliProtocolStore getSignalProtocolStore() {
+        return signalProtocolStore;
+    }
+
+    @Override
+    public GroupStore getGroupStore() {
+        return groupStore;
+    }
+
+    @Override
+    public ContactsStore getContactStore() {
+        return contactStore;
+    }
+
+    @Override
+    public RecipientStore getRecipientStore() {
+        return recipientStore;
+    }
+
+    @Override
+    public ProfileStore getProfileStore() {
+        return profileStore;
+    }
+
+    @Override
+    public StickerStore getStickerStore() {
+        return stickerStore;
+    }
+
+    @Override
+    public MessageCache getMessageCache() {
+        return messageCache;
+    }
+
+    @Override
+    public String getUsername() {
+        return username;
+    }
+
+    @Override
+    public UUID getUuid() {
+        return uuid;
+    }
+
+    @Override
+    public void setUuid(final UUID uuid) {
+        this.uuid = uuid;
+    }
+
+    @Override
+    public int getDeviceId() {
+        return deviceId;
+    }
+
+    @Override
+    public void setDeviceId(final int deviceId) {
+        this.deviceId = deviceId;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public void setPassword(final String password) {
+        this.password = password;
+    }
+
+    @Override
+    public String getRegistrationLockPin() {
+        return registrationLockPin;
+    }
+
+    @Override
+    public void setRegistrationLockPin(final String registrationLockPin) {
+        this.registrationLockPin = registrationLockPin;
+    }
+
+    @Override
+    public MasterKey getPinMasterKey() {
+        return pinMasterKey;
+    }
+
+    @Override
+    public void setPinMasterKey(final MasterKey pinMasterKey) {
+        this.pinMasterKey = pinMasterKey;
+    }
+
+    @Override
+    public StorageKey getStorageKey() {
+        if (pinMasterKey != null) {
+            return pinMasterKey.deriveStorageServiceKey();
+        }
+        return storageKey;
+    }
+
+    @Override
+    public void setStorageKey(final StorageKey storageKey) {
+        this.storageKey = storageKey;
+    }
+
+    @Override
+    public ProfileKey getProfileKey() {
+        return profileKey;
+    }
+
+    @Override
+    public void setProfileKey(final ProfileKey profileKey) {
+        this.profileKey = profileKey;
+    }
+
+    @Override
+    public int getPreKeyIdOffset() {
+        return preKeyIdOffset;
+    }
+
+    @Override
+    public void setPreKeyIdOffset(final int preKeyIdOffset) {
+        this.preKeyIdOffset = preKeyIdOffset;
+    }
+
+    @Override
+    public int getNextSignedPreKeyId() {
+        return nextSignedPreKeyId;
+    }
+
+    @Override
+    public void setNextSignedPreKeyId(final int nextSignedPreKeyId) {
+        this.nextSignedPreKeyId = nextSignedPreKeyId;
     }
 
     @Override

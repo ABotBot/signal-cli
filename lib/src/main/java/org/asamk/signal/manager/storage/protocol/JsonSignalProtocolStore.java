@@ -12,12 +12,11 @@ import org.whispersystems.libsignal.SignalProtocolAddress;
 import org.whispersystems.libsignal.state.PreKeyRecord;
 import org.whispersystems.libsignal.state.SessionRecord;
 import org.whispersystems.libsignal.state.SignedPreKeyRecord;
-import org.whispersystems.signalservice.api.SignalServiceProtocolStore;
 import org.whispersystems.signalservice.api.push.SignalServiceAddress;
 
 import java.util.List;
 
-public class JsonSignalProtocolStore implements SignalServiceProtocolStore {
+public class JsonSignalProtocolStore implements SignalCliProtocolStore {
 
     @JsonProperty("preKeys")
     @JsonDeserialize(using = JsonPreKeyStore.JsonPreKeyStoreDeserializer.class)
@@ -61,6 +60,7 @@ public class JsonSignalProtocolStore implements SignalServiceProtocolStore {
         this.identityKeyStore = new JsonIdentityKeyStore(identityKeyPair, registrationId);
     }
 
+    @Override
     public void setResolver(final SignalServiceAddressResolver resolver) {
         sessionStore.setResolver(resolver);
         identityKeyStore.setResolver(resolver);
@@ -81,24 +81,29 @@ public class JsonSignalProtocolStore implements SignalServiceProtocolStore {
         return identityKeyStore.saveIdentity(address, identityKey);
     }
 
+    @Override
     public void saveIdentity(SignalServiceAddress serviceAddress, IdentityKey identityKey, TrustLevel trustLevel) {
         identityKeyStore.saveIdentity(serviceAddress, identityKey, trustLevel, null);
     }
 
+    @Override
     public void setIdentityTrustLevel(
             SignalServiceAddress serviceAddress, IdentityKey identityKey, TrustLevel trustLevel
     ) {
         identityKeyStore.setIdentityTrustLevel(serviceAddress, identityKey, trustLevel);
     }
 
+    @Override
     public void removeIdentity(SignalServiceAddress serviceAddress, IdentityKey identityKey) {
         identityKeyStore.removeIdentity(serviceAddress, identityKey);
     }
 
+    @Override
     public List<IdentityInfo> getIdentities() {
         return identityKeyStore.getIdentities();
     }
 
+    @Override
     public List<IdentityInfo> getIdentities(SignalServiceAddress serviceAddress) {
         return identityKeyStore.getIdentities(serviceAddress);
     }
@@ -113,6 +118,7 @@ public class JsonSignalProtocolStore implements SignalServiceProtocolStore {
         return identityKeyStore.getIdentity(address);
     }
 
+    @Override
     public IdentityInfo getIdentity(SignalServiceAddress serviceAddress) {
         return identityKeyStore.getIdentity(serviceAddress);
     }
@@ -142,6 +148,7 @@ public class JsonSignalProtocolStore implements SignalServiceProtocolStore {
         return sessionStore.loadSession(address);
     }
 
+    @Override
     public List<SessionInfo> getSessions() {
         return sessionStore.getSessions();
     }
@@ -171,6 +178,7 @@ public class JsonSignalProtocolStore implements SignalServiceProtocolStore {
         sessionStore.deleteAllSessions(name);
     }
 
+    @Override
     public void deleteAllSessions(SignalServiceAddress serviceAddress) {
         sessionStore.deleteAllSessions(serviceAddress);
     }
@@ -180,6 +188,7 @@ public class JsonSignalProtocolStore implements SignalServiceProtocolStore {
         sessionStore.archiveSession(address);
     }
 
+    @Override
     public void archiveAllSessions() {
         sessionStore.archiveAllSessions();
     }

@@ -1,178 +1,91 @@
 package org.asamk.signal.manager.storage;
 
-import org.asamk.signal.manager.storage.contacts.JsonContactsStore;
-import org.asamk.signal.manager.storage.groups.JsonGroupStore;
+import org.asamk.signal.manager.storage.contacts.ContactsStore;
+import org.asamk.signal.manager.storage.groups.GroupStore;
 import org.asamk.signal.manager.storage.messageCache.MessageCache;
 import org.asamk.signal.manager.storage.profiles.ProfileStore;
-import org.asamk.signal.manager.storage.protocol.JsonSignalProtocolStore;
 import org.asamk.signal.manager.storage.protocol.RecipientStore;
+import org.asamk.signal.manager.storage.protocol.SignalCliProtocolStore;
 import org.asamk.signal.manager.storage.stickers.StickerStore;
-import org.asamk.signal.manager.util.IOUtils;
 import org.signal.zkgroup.profiles.ProfileKey;
-import org.whispersystems.libsignal.IdentityKeyPair;
 import org.whispersystems.signalservice.api.crypto.UnidentifiedAccess;
 import org.whispersystems.signalservice.api.kbs.MasterKey;
 import org.whispersystems.signalservice.api.push.SignalServiceAddress;
 import org.whispersystems.signalservice.api.storage.StorageKey;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
-public abstract class AccountStorage {
+public interface AccountStorage {
+    void save();
 
-    protected String username;
-    protected UUID uuid;
-    protected int deviceId = SignalServiceAddress.DEFAULT_DEVICE_ID;
-    protected boolean isMultiDevice = false;
-    protected String password;
-    protected String registrationLockPin;
-    protected MasterKey pinMasterKey;
-    protected StorageKey storageKey;
-    protected ProfileKey profileKey;
-    protected int preKeyIdOffset;
-    protected int nextSignedPreKeyId;
-    protected boolean registered = false;
-    protected JsonSignalProtocolStore signalProtocolStore;
-    protected JsonGroupStore groupStore;
-    protected JsonContactsStore contactStore;
-    protected RecipientStore recipientStore;
-    protected ProfileStore profileStore;
-    protected StickerStore stickerStore;
-    protected MessageCache messageCache;
+    void close() throws IOException;
 
-    public abstract void save();
-
-    public abstract void close() throws IOException;
-
-    public boolean isRegistered() {
-        return registered;
+    default SignalServiceAddress getSelfAddress() {
+        return new SignalServiceAddress(getUuid(), getUsername());
     }
 
-    public void setRegistered(final boolean registered) {
-        this.registered = registered;
-    }
+    boolean isRegistered();
 
-    public boolean isMultiDevice() {
-        return isMultiDevice;
-    }
+    void setRegistered(boolean registered);
 
-    public void setMultiDevice(final boolean multiDevice) {
-        isMultiDevice = multiDevice;
-    }
+    boolean isMultiDevice();
 
-    public SignalServiceAddress getSelfAddress() {
-        return new SignalServiceAddress(uuid, username);
-    }
+    void setMultiDevice(boolean multiDevice);
 
-    public JsonSignalProtocolStore getSignalProtocolStore() {
-        return signalProtocolStore;
-    }
+    SignalCliProtocolStore getSignalProtocolStore();
 
-    public JsonGroupStore getGroupStore() {
-        return groupStore;
-    }
+    GroupStore getGroupStore();
 
-    public JsonContactsStore getContactStore() {
-        return contactStore;
-    }
+    ContactsStore getContactStore();
 
-    public RecipientStore getRecipientStore() {
-        return recipientStore;
-    }
+    RecipientStore getRecipientStore();
 
-    public ProfileStore getProfileStore() {
-        return profileStore;
-    }
+    ProfileStore getProfileStore();
 
-    public StickerStore getStickerStore() {
-        return stickerStore;
-    }
+    StickerStore getStickerStore();
 
-    public MessageCache getMessageCache() {
-        return messageCache;
-    }
+    MessageCache getMessageCache();
 
-    public String getUsername() {
-        return username;
-    }
+    String getUsername();
 
-    public UUID getUuid() {
-        return uuid;
-    }
+    UUID getUuid();
 
-    public void setUuid(final UUID uuid) {
-        this.uuid = uuid;
-    }
+    void setUuid(UUID uuid);
 
-    public int getDeviceId() {
-        return deviceId;
-    }
+    int getDeviceId();
 
-    public void setDeviceId(final int deviceId) {
-        this.deviceId = deviceId;
-    }
+    void setDeviceId(int deviceId);
 
-    public String getPassword() {
-        return password;
-    }
+    String getPassword();
 
-    public void setPassword(final String password) {
-        this.password = password;
-    }
+    void setPassword(String password);
 
-    public String getRegistrationLockPin() {
-        return registrationLockPin;
-    }
+    String getRegistrationLockPin();
 
-    public void setRegistrationLockPin(final String registrationLockPin) {
-        this.registrationLockPin = registrationLockPin;
-    }
+    void setRegistrationLockPin(String registrationLockPin);
 
-    public MasterKey getPinMasterKey() {
-        return pinMasterKey;
-    }
+    MasterKey getPinMasterKey();
 
-    public void setPinMasterKey(final MasterKey pinMasterKey) {
-        this.pinMasterKey = pinMasterKey;
-    }
+    void setPinMasterKey(MasterKey pinMasterKey);
 
-    public StorageKey getStorageKey() {
-        if (pinMasterKey != null) {
-            return pinMasterKey.deriveStorageServiceKey();
-        }
-        return storageKey;
-    }
+    StorageKey getStorageKey();
 
-    public void setStorageKey(final StorageKey storageKey) {
-        this.storageKey = storageKey;
-    }
+    void setStorageKey(StorageKey storageKey);
 
-    public ProfileKey getProfileKey() {
-        return profileKey;
-    }
+    ProfileKey getProfileKey();
 
-    public void setProfileKey(final ProfileKey profileKey) {
-        this.profileKey = profileKey;
-    }
+    void setProfileKey(ProfileKey profileKey);
 
-    public byte[] getSelfUnidentifiedAccessKey() {
+    default byte[] getSelfUnidentifiedAccessKey() {
         return UnidentifiedAccess.deriveAccessKeyFrom(getProfileKey());
     }
 
-    public int getPreKeyIdOffset() {
-        return preKeyIdOffset;
-    }
+    int getPreKeyIdOffset();
 
-    public void setPreKeyIdOffset(final int preKeyIdOffset) {
-        this.preKeyIdOffset = preKeyIdOffset;
-    }
+    void setPreKeyIdOffset(int preKeyIdOffset);
 
-    public int getNextSignedPreKeyId() {
-        return nextSignedPreKeyId;
-    }
+    int getNextSignedPreKeyId();
 
-    public void setNextSignedPreKeyId(final int nextSignedPreKeyId) {
-        this.nextSignedPreKeyId = nextSignedPreKeyId;
-    }
+    void setNextSignedPreKeyId(int nextSignedPreKeyId);
 }

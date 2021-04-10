@@ -122,7 +122,7 @@ public class ProvisioningManager {
                     ret.getDeviceId(),
                     ret.getIdentity(),
                     registrationId,
-                    profileKey);
+                    profileKey));
             account.save();
 
             Manager m = null;

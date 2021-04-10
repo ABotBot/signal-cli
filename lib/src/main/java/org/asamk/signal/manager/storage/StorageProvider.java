@@ -5,7 +5,6 @@ import org.asamk.signal.manager.AvatarStore;
 import org.signal.zkgroup.profiles.ProfileKey;
 import org.whispersystems.libsignal.IdentityKeyPair;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 

@@ -29,12 +29,12 @@ public class FileStorageProvider implements StorageProvider {
 
     @Override
     public AvatarStore getAvatarStore() {
-        return new AvatarStore(pathConfig.getAvatarsPath());
+        return new FileAvatarStore(pathConfig.getAvatarsPath());
     }
 
     @Override
     public AttachmentStore getAttachmentStore() {
-        return new AttachmentStore(pathConfig.getAttachmentsPath());
+        return new FileAttachmentStore(pathConfig.getAttachmentsPath());
     }
 
     @Override

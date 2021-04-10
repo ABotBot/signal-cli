@@ -1741,7 +1741,7 @@ public class Manager implements Closeable {
                 try {
                     content = decryptMessage(envelope);
                 } catch (Exception e) {
-                    exception = e;
+                     exception = e;
                 }
                 var actions = handleMessage(envelope, content, ignoreAttachments);
                 if (hasCaughtUpWithOldMessages) {

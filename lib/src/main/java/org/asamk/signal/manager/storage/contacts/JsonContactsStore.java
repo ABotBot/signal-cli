@@ -7,11 +7,12 @@ import org.whispersystems.signalservice.api.push.SignalServiceAddress;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JsonContactsStore {
+public class JsonContactsStore implements ContactsStore {
 
     @JsonProperty("contacts")
     private List<ContactInfo> contacts = new ArrayList<>();
 
+    @Override
     public void updateContact(ContactInfo contact) {
         final var contactAddress = contact.getAddress();
         for (var i = 0; i < contacts.size(); i++) {
@@ -24,6 +25,7 @@ public class JsonContactsStore {
         contacts.add(contact);
     }
 
+    @Override
     public ContactInfo getContact(SignalServiceAddress address) {
         for (var contact : contacts) {
             if (contact.getAddress().matches(address)) {
@@ -39,6 +41,7 @@ public class JsonContactsStore {
         return null;
     }
 
+    @Override
     public List<ContactInfo> getContacts() {
         return new ArrayList<>(contacts);
     }
@@ -46,6 +49,7 @@ public class JsonContactsStore {
     /**
      * Remove all contacts from the store
      */
+    @Override
     public void clear() {
         contacts.clear();
     }

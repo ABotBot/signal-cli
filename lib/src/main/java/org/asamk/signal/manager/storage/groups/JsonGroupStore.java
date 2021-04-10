@@ -34,7 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JsonGroupStore {
+public class JsonGroupStore implements GroupStore {
 
     private final static Logger logger = LoggerFactory.getLogger(JsonGroupStore.class);
 
@@ -53,6 +53,7 @@ public class JsonGroupStore {
         this.groupCachePath = groupCachePath;
     }
 
+    @Override
     public void updateGroup(GroupInfo group) {
         groups.put(group.getGroupId(), group);
         if (group instanceof GroupInfoV2 && ((GroupInfoV2) group).getGroup() != null) {
@@ -71,10 +72,12 @@ public class JsonGroupStore {
         }
     }
 
+    @Override
     public void deleteGroup(GroupId groupId) {
         groups.remove(groupId);
     }
 
+    @Override
     public GroupInfo getGroup(GroupId groupId) {
         var group = groups.get(groupId);
         if (group == null) {
@@ -124,6 +127,7 @@ public class JsonGroupStore {
         return new File(groupCachePath, groupId.toBase64().replace("/", "_"));
     }
 
+    @Override
     public GroupInfoV1 getOrCreateGroupV1(GroupIdV1 groupId) {
         var group = getGroup(groupId);
         if (group instanceof GroupInfoV1) {
@@ -137,6 +141,7 @@ public class JsonGroupStore {
         return null;
     }
 
+    @Override
     public List<GroupInfo> getGroups() {
         final var groups = this.groups.values();
         for (var group : groups) {

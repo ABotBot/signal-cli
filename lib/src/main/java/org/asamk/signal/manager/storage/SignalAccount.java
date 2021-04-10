@@ -1,12 +1,12 @@
 package org.asamk.signal.manager.storage;
 
-import org.asamk.signal.manager.storage.contacts.JsonContactsStore;
-import org.asamk.signal.manager.storage.groups.JsonGroupStore;
-import org.asamk.signal.manager.storage.messageCache.MessageCache;
+import org.asamk.signal.manager.storage.contacts.ContactsStore;
+import org.asamk.signal.manager.storage.groups.GroupStore;
 import org.asamk.signal.manager.storage.profiles.ProfileStore;
-import org.asamk.signal.manager.storage.protocol.JsonSignalProtocolStore;
-import org.asamk.signal.manager.storage.protocol.RecipientStore;
+import org.asamk.signal.manager.storage.protocol.SignalCliProtocolStore;
 import org.asamk.signal.manager.storage.protocol.SignalServiceAddressResolver;
+import org.asamk.signal.manager.storage.messageCache.MessageCache;
+import org.asamk.signal.manager.storage.protocol.RecipientStore;
 import org.asamk.signal.manager.storage.stickers.StickerStore;
 import org.asamk.signal.manager.util.KeyUtils;
 import org.signal.zkgroup.InvalidInputException;
@@ -88,15 +88,15 @@ public class SignalAccount implements Closeable {
         accountStorage.setNextSignedPreKeyId((getNextSignedPreKeyId() + 1) % Medium.MAX_VALUE);
     }
 
-    public JsonSignalProtocolStore getSignalProtocolStore() {
+    public SignalCliProtocolStore getSignalProtocolStore() {
         return accountStorage.getSignalProtocolStore();
     }
 
-    public JsonGroupStore getGroupStore() {
+    public GroupStore getGroupStore() {
         return accountStorage.getGroupStore();
     }
 
-    public JsonContactsStore getContactStore() {
+    public ContactsStore getContactStore() {
         return accountStorage.getContactStore();
     }
 
